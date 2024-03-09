@@ -7,6 +7,7 @@
 <script src='https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js'></script>
 <link href='https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css' rel='stylesheet' />
 <script src='https://unpkg.com/pmtiles@2.5.0/dist/index.js'></script>
+<script src="./measure.js"></script>
 <style>
 body { margin:0; padding:0;}
 
@@ -307,6 +308,123 @@ const switchTiles =() => {
     }
   });
 }
+
+/*************************************************/
+/*距離測定                                       */
+/*************************************************/
+
+let isTrucking = false;
+let firstPoint;
+
+map.on('load', () => {
+  
+  map.addSource('target-line', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: []
+    }
+  });
+  map.addLayer({
+    id: 'target-line',
+    type: 'line',
+    source: 'target-line',
+    paint: {
+      'line-width': 4,
+      'line-color': '#FF0000'
+    }
+  });
+  map.addLayer({
+    id: 'target-line-circle',
+    type: 'circle',
+    source: 'target-line',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': '#FF0000'
+    }
+  });
+  map.addLayer({
+    "id":"distance",
+    "type": "symbol",
+    "source": "target-line",
+    "paint":{
+      "text-color": "rgba(255,0,0,1)",
+      "text-halo-color": "rgba(255,255,255,1)",
+      "text-halo-width": 2
+    },
+    "layout":{
+      "symbol-placement": "line",
+      "text-field": ["get", "dist-text"],
+      "text-font":["NotoSansJP-Regular"]
+    }
+  });
+});
+
+map.on('click', e => {
+  map.resize();
+  isTrucking = !isTrucking;
+  
+  if(isTrucking){
+    firstPoint = [e.lngLat.lng, e.lngLat.lat];
+  }else{
+    const endPoint = [e.lngLat.lng, e.lngLat.lat];
+    
+    const dist = Math.floor( 
+      GSI.Utils.DistanceCalculator.calc(
+        {lng: firstPoint[0], lat: firstPoint[1]}, {lng: endPoint[0], lat: endPoint[1]}
+      )
+    );
+    console.log(dist);
+    
+    
+    const cn = {
+      lng: (firstPoint[0] + endPoint[0])/2,
+      lat: (firstPoint[1] + endPoint[1])/2
+    };
+    
+    map.getSource('target-line').setData({
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          firstPoint, endPoint
+        ]
+      },
+      "properties": {
+        "dist": dist,
+        "dist-text": `${dist} m (${Math.round(dist/1000)} km)`
+      }
+    });
+    
+    firstPoint = [];
+  }
+});
+
+map.on('mousemove', e => {
+  if(isTrucking){
+    const endPoint = [e.lngLat.lng, e.lngLat.lat];
+    
+    const dist = Math.floor( 
+      GSI.Utils.DistanceCalculator.calc(
+        {lng: firstPoint[0], lat: firstPoint[1]}, {lng: endPoint[0], lat: endPoint[1]}
+      )
+    );
+    
+    map.getSource('target-line').setData({
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          firstPoint, endPoint
+        ]
+      },
+      "properties": {}
+    });
+    
+    
+  }
+});
+
 
 </script>
 
